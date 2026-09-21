@@ -18,7 +18,7 @@ package uk.gov.hmrc.crsfatcafimanagement.controllers
 
 import com.google.inject.Inject
 import play.api.Logging
-import play.api.libs.json._
+import play.api.libs.json.*
 import play.api.mvc.{Action, AnyContent, ControllerComponents, Result}
 import uk.gov.hmrc.crsfatcafimanagement.auth.AuthActionSets
 import uk.gov.hmrc.crsfatcafimanagement.config.AppConfig
@@ -28,7 +28,7 @@ import uk.gov.hmrc.crsfatcafimanagement.models.RequestType
 import uk.gov.hmrc.crsfatcafimanagement.models.RequestType.{CREATE, UPDATE}
 import uk.gov.hmrc.crsfatcafimanagement.models.error.ErrorDetails
 import uk.gov.hmrc.crsfatcafimanagement.models.errors.CreateSubmissionError
-import uk.gov.hmrc.crsfatcafimanagement.services.CADXSubmissionService
+import uk.gov.hmrc.crsfatcafimanagement.services.{AuditService, CADXSubmissionService}
 import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
@@ -40,6 +40,7 @@ class FIManagementController @Inject() (
   authenticator: AuthActionSets,
   service: CADXSubmissionService,
   connector: CADXConnector,
+  auditService: AuditService,
   override val controllerComponents: ControllerComponents
 )(implicit executionContext: ExecutionContext)
     extends BackendController(controllerComponents)
@@ -87,7 +88,9 @@ class FIManagementController @Inject() (
             },
           validReq =>
             service.removeFI(validReq).map {
-              case Right(_) => Ok
+              case Right(_) =>
+                auditService.sendRemoveFinancialInstitution(validReq.FIID, validReq.SubscriptionID)
+                Ok
               case Left(CreateSubmissionError(value)) =>
                 logger.warn(s"CreateSubmissionError $value")
                 InternalServerError(s"CreateSubmissionError $value")
